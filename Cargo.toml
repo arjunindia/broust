@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 native-tls = "0.2.11"
-notan = "0.12.0"
+notan = { version = "0.12.0", features = ["notan_text","text"] }
