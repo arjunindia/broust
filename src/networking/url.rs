@@ -1,5 +1,6 @@
+use crate::networking::header::Header;
+
 use std::collections::HashMap;
-use std::str::from_utf8_unchecked;
 use std::{
     io::{Read, Write},
     net::TcpStream,
@@ -47,17 +48,17 @@ impl URL {
                 if self.scheme == "https" {
                     let connector = TlsConnector::new().unwrap();
                     let mut stream = connector.connect(&self.host, stream).unwrap();
-                    let request = format!(
-                        "GET {} HTTP/1.0\r\nHost: {}\r\nAccept-Encoding: identity\r\n\r\n",
-                        self.path, self.host
-                    );
+                    let request = Header::new(&self.path, &self.host)
+                        .add("Accept-Encoding", "identity")
+                        .to_string();
+                    println!("{request}");
                     let request = request.as_bytes();
                     stream.write(request).unwrap();
                     let mut data: Vec<u8> = Vec::new();
                     let mut header_map: HashMap<String, String> = HashMap::new();
                     return match stream.read_to_end(&mut data) {
                         Ok(_) => {
-                            let text = unsafe { from_utf8_unchecked(&data) };
+                            let text = String::from_utf8_lossy(&data);
                             let headers: Vec<&str> = text
                                 .split("\r\n")
                                 .collect::<Vec<&str>>()
@@ -98,7 +99,7 @@ impl URL {
                 let mut header_map: HashMap<String, String> = HashMap::new();
                 match stream.read_to_end(&mut data) {
                     Ok(_) => {
-                        let text = unsafe { from_utf8_unchecked(&data) };
+                        let text = String::from_utf8_lossy(&data);
 
                         let headers: Vec<&str> = text
                             .split("\r\n")
@@ -137,4 +138,3 @@ impl URL {
         }
     }
 }
-
