@@ -1,4 +1,5 @@
 use ::std::env;
+use core::f64;
 use notan::prelude::*;
 use notan::text::*;
 
@@ -23,6 +24,8 @@ fn lex(body: String) -> String {
 struct State {
     font: Font,
     body: String,
+    scroll_x: f32,
+    scroll_y: f32,
 }
 
 #[notan_main]
@@ -30,6 +33,7 @@ fn main() -> Result<(), String> {
     notan::init_with(setup)
         .add_config(TextConfig)
         .draw(draw)
+        .update(update)
         .build()
 }
 
@@ -41,21 +45,35 @@ fn setup(gfx: &mut Graphics) -> State {
     let url = networking::url::URL::new(&args[1]);
     let response = url.request();
     let body = lex(response);
-
     let font = gfx
         .create_font(include_bytes!("./assets/Inter.ttf"))
         .unwrap();
-
-    State { font, body }
+    let scroll_x = 0.0;
+    let scroll_y = 0.0;
+    State {
+        font,
+        body,
+        scroll_x,
+        scroll_y,
+    }
 }
 
+fn update(app: &mut App, state: &mut State) {
+    if app.mouse.is_scrolling() {
+        let delta_x = app.mouse.wheel_delta.x;
+        let delta_y = app.mouse.wheel_delta.y;
+
+        state.scroll_x = (state.scroll_x + delta_x);
+        state.scroll_y = (state.scroll_y + delta_y);
+    }
+}
 fn draw(gfx: &mut Graphics, state: &mut State) {
     let mut text = gfx.create_text();
     text.clear_color(Color::WHITE);
 
     text.add(&state.body)
         .font(&state.font)
-        .position(0.0, 0.0)
+        .position(state.scroll_x, state.scroll_y)
         .color(Color::BLACK)
         .size(16.0);
 
