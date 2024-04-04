@@ -1,88 +1,65 @@
 use ::std::env;
-use core::f64;
-use notan::prelude::*;
-use notan::text::*;
 
+mod lexer;
 mod networking;
 
-fn lex(body: String) -> String {
-    let mut in_tag = false;
-    let mut text = "".to_string();
-    for c in body.chars() {
-        if c == '<' {
-            in_tag = true;
-        } else if c == '>' {
-            in_tag = false;
-        } else if !in_tag {
-            text.push(c);
+use macroquad::prelude::*;
+
+const CUR_X: f32 = 13.0;
+const CUR_Y: f32 = 18.0;
+const SCROLL_DISTANCE: f32 = 100.0;
+
+fn layout(text: &String) -> Vec<(f32, f32, String)> {
+    let mut display_list: Vec<(f32, f32, String)> = Vec::new();
+    let mut x = 0.0;
+    let mut y = 10.0;
+    for c in text.chars() {
+        display_list.push((x, y, c.to_string()));
+        if x >= screen_width() {
+            y += CUR_Y;
+            x = 0.0;
         }
+        x += CUR_X;
     }
-    text
+    display_list
 }
 
-#[derive(AppState)]
-struct State {
-    font: Font,
-    body: String,
-    scroll_x: f32,
-    scroll_y: f32,
-}
-
-#[notan_main]
-fn main() -> Result<(), String> {
-    notan::init_with(setup)
-        .add_config(TextConfig)
-        .draw(draw)
-        .update(update)
-        .build()
-}
-
-fn setup(gfx: &mut Graphics) -> State {
+#[macroquad::main("Text")]
+async fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() <= 1 {
         panic!("Not enough arguments! add a `-- {{url}}` at the end of the CLI");
     }
-    let url = networking::url::URL::new(&args[1]);
-    let response = url.request();
-    let body = lex(response);
-    let font = gfx
-        .create_font(include_bytes!("./assets/Inter.ttf"))
-        .unwrap();
-    let scroll_x = 0.0;
-    let scroll_y = 0.0;
-    State {
-        font,
-        body,
-        scroll_x,
-        scroll_y,
+    let font = load_ttf_font("./src/assets/Inter.ttf").await.unwrap();
+    let text = networking::url::URL::new(&args[1]);
+    let text = &text.request();
+    let text = lexer::lex(text.to_string());
+    let mut scroll = 0.0;
+    loop {
+        clear_background(WHITE);
+        let (_mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
+        if mouse_wheel_y < 0.0 {
+            scroll += SCROLL_DISTANCE;
+        } else if mouse_wheel_y > 0.0 {
+            scroll -= SCROLL_DISTANCE;
+        }
+        for (x, y, c) in layout(&text) {
+            if y > scroll + screen_height() || y + CUR_Y < scroll {
+                continue;
+            }
+
+            draw_text_ex(
+                &c,
+                x,
+                y - scroll,
+                TextParams {
+                    font: Some(&font),
+                    font_size: 16,
+                    color: BLACK,
+                    ..Default::default()
+                },
+            );
+        }
+        next_frame().await
     }
-}
-
-fn update(app: &mut App, state: &mut State) {
-    if app.mouse.is_scrolling() {
-        let delta_x = app.mouse.wheel_delta.x;
-        let delta_y = app.mouse.wheel_delta.y;
-
-        state.scroll_x = (state.scroll_x + delta_x);
-        state.scroll_y = (state.scroll_y + delta_y);
-    }
-}
-fn draw(gfx: &mut Graphics, state: &mut State) {
-    let mut text = gfx.create_text();
-    text.clear_color(Color::WHITE);
-
-    text.add(&state.body)
-        .font(&state.font)
-        .position(state.scroll_x, state.scroll_y)
-        .color(Color::BLACK)
-        .size(16.0);
-
-    text.chain("Notan! ").size(50.0).color(Color::RED);
-
-    text.chain("(Using TextExtension)")
-        .font(&state.font)
-        .size(20.0)
-        .color(Color::GRAY.with_alpha(0.5));
-
-    gfx.render(&text);
 }
