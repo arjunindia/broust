@@ -1,14 +1,40 @@
-pub fn lex(body: String) -> String {
+pub struct Text {
+    pub text: String,
+}
+pub struct Tag {
+    pub tag: String,
+}
+
+pub enum Token {
+    Text(Text),
+    Tag(Tag),
+}
+
+pub fn lex(body: String) -> Vec<Token> {
+    let mut output: Vec<Token> = Vec::new();
+    let mut buffer = "".to_string();
     let mut in_tag = false;
-    let mut text = "".to_string();
     for c in body.chars() {
         if c == '<' {
             in_tag = true;
+            if !buffer.is_empty() {
+                output.push(Token::Text(Text {
+                    text: buffer.clone(),
+                }));
+            }
+            buffer = "".to_string();
         } else if c == '>' {
             in_tag = false;
-        } else if !in_tag {
-            text.push(c);
+            output.push(Token::Tag(Tag {
+                tag: buffer.clone(),
+            }));
+            buffer = "".to_string();
+        } else {
+            buffer = format!("{}{}", buffer, c);
         }
     }
-    text
+    if !in_tag && !buffer.is_empty() {
+        output.push(Token::Text(Text { text: buffer }))
+    }
+    output
 }

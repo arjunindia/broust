@@ -138,6 +138,7 @@ dependencies = [
 name = "browser"
 version = "0.1.0"
 dependencies = [
+ "enum_extract",
  "macroquad",
  "native-tls",
  "notan",
@@ -451,6 +452,12 @@ checksum = "6916301ecf80448f786cdf3eb51d9dbdd831538732229d49119e2d4312eaaf09"
 dependencies = [
  "bytemuck",
 ]
+
+[[package]]
+name = "enum_extract"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11578f9e8496eeb626c549e1b340a57e479840ff7ae13fe12d4dbd97c18779d1"
 
 [[package]]
 name = "epaint"
