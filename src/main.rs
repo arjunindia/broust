@@ -3,8 +3,7 @@ use ::std::env;
 mod lexer;
 mod networking;
 
-use enum_extract::extract;
-use lexer::{Text, Token};
+use lexer::{Tag, Text, Token};
 use macroquad::prelude::*;
 
 const SCROLL_DISTANCE: f32 = 100.0;
@@ -15,12 +14,12 @@ fn layout(tokens: &Vec<Token>, font: &Font) -> Vec<(f32, f32, String, TextDimens
     let mut y = 10.0;
     let space_measure = measure_text(" ", Some(font), 16, 1.0);
     println!("sw: {}", screen_width());
+    
     for token in tokens {
-        let c = extract!(Token::Text(_), token);
-        let t = Text {
-            text: "".to_string(),
+        let c = match &token {
+            Token::Text(Text { text }) => text,
+            Token::Tag(Tag { tag }) => tag,
         };
-        let c = &c.unwrap_or(&t).text;
         for word in c.split_whitespace() {
             let measure: TextDimensions = measure_text(word, Some(font), 16, 1.0);
             if x + measure.width >= screen_width() {
