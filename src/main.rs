@@ -49,38 +49,48 @@ fn layout<'a>(
     let mut display_list: Vec<(f32, f32, String, TextDimensions, &'a Font)> = Vec::new();
     let mut x = 0.0;
     let mut y = 10.0;
-    let mut style = &font.roman;
+    let mut style = "Roman";
+    let mut weight = "Normal";
     for token in tokens {
         let c = match &token {
             Token::Text(Text { text }) => text,
             Token::Tag(Tag { tag }) => {
                 if tag == "i" || tag == "em" {
-                    style = &font.italic;
+                    style = "Italic";
                 } else if tag == "/i" || tag == "/em" {
-                    style = &font.roman;
+                    style = "Roman";
                 } else if tag == "b" || tag == "strong" {
-                    style = &font.bold;
+                    weight = "Bold";
                 } else if tag == "/b" || tag == "/strong" {
-                    style = &font.roman;
+                    weight = "Normal";
                 } else {
                 }
                 ""
             }
         };
-        let space_measure = measure_text(" ", Some(style), 16, 1.0);
-        let empty_measure = measure_text("", Some(style), 16, 1.0);
+        let cfont = if style == "Italic" && weight == "Bold" {
+            &font.bold_italic
+        } else if weight == "Bold" {
+            &font.bold
+        } else if style == "Italic" {
+            &font.italic
+        } else {
+            &font.roman
+        };
+        let space_measure = measure_text(" ", Some(cfont), 16, 1.0);
+        let empty_measure = measure_text("", Some(cfont), 16, 1.0);
         let c = html_escape::decode_html_entities(c);
         for word in c.split_whitespace() {
-            let measure: TextDimensions = measure_text(word, Some(style), 16, 1.0);
+            let measure: TextDimensions = measure_text(word, Some(cfont), 16, 1.0);
             if x + measure.width >= screen_width() {
                 y += 18.0 * 1.25;
                 x = 0.0;
             }
-            display_list.push((x, y, word.to_string(), measure, style));
+            display_list.push((x, y, word.to_string(), measure, cfont));
             x += measure.width + space_measure.width;
         }
         if c.split_whitespace().count() <= 0 {
-            display_list.push((x, y, "".to_string(), empty_measure, style));
+            display_list.push((x, y, "".to_string(), empty_measure, cfont));
         }
     }
     display_list
