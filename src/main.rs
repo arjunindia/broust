@@ -1,4 +1,5 @@
 use ::std::env;
+use std::collections::HashMap;
 
 mod lexer;
 mod networking;
@@ -51,7 +52,28 @@ struct Layout<'a> {
 }
 
 impl<'a> Layout<'a> {
+    fn cached_measure<'b>(
+        cache: &mut HashMap<String, TextDimensions>,
+        text: &'b str,
+        font: &'b Font,
+        font_size: u16,
+        font_scale: f32,
+    ) -> TextDimensions {
+        if !cache.is_empty() {
+            let key = format!("{}{:?}{}{}", text, font, font_size, font_scale);
+            if cache.contains_key(&key) {
+                return cache.get(&key).unwrap().to_owned();
+            }
+        }
+        let key = format!("{}{:?}{}{}", text, font, font_size, font_scale);
+        cache.insert(
+            key.clone(),
+            measure_text(text, Some(font), font_size, font_scale),
+        );
+        cache.get(&key.to_string()).unwrap().to_owned()
+    }
     fn new(tokens: &Vec<Token>, font: &'a DefaultFont) -> Self {
+        let mut cache: HashMap<String, TextDimensions> = HashMap::new();
         let mut display_list: Vec<(f32, f32, u16, String, TextDimensions, &'a Font)> = Vec::new();
         let mut x = 0.0;
         let mut y = 10.0;
@@ -92,7 +114,7 @@ impl<'a> Layout<'a> {
             } else {
                 &font.roman
             };
-            let space_measure = measure_text(" ", Some(cfont), font_size, 1.0);
+            let space_measure = Self::cached_measure(&mut cache, " ", cfont, font_size, 1.0);
             let empty_measure = measure_text("", Some(cfont), font_size, 1.0);
             let c = html_escape::decode_html_entities(c);
 
