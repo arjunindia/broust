@@ -7,6 +7,8 @@ pub struct DefaultFont {
     italic: Font,
     bold: Font,
     bold_italic: Font,
+    mono: Font,
+    bold_mono: Font,
 }
 impl<'a> Default for DefaultFont {
     fn default() -> Self {
@@ -25,6 +27,14 @@ impl<'a> Default for DefaultFont {
             "../assets/fonts/OpenSans/OpenSans-BoldItalic.ttf"
         ))
         .unwrap();
+        let mut mono = load_ttf_font_from_bytes(include_bytes!(
+            "../assets/fonts/JetbrainsMono/JetBrainsMono-Regular.ttf"
+        ))
+        .unwrap();
+        let mut bold_mono = load_ttf_font_from_bytes(include_bytes!(
+            "../assets/fonts/JetbrainsMono/JetBrainsMono-Bold.ttf"
+        ))
+        .unwrap();
         roman.set_filter(FilterMode::Nearest);
         italic.set_filter(FilterMode::Nearest);
         bold.set_filter(FilterMode::Nearest);
@@ -34,6 +44,8 @@ impl<'a> Default for DefaultFont {
             italic,
             bold,
             bold_italic,
+            mono,
+            bold_mono,
         }
     }
 }
@@ -81,6 +93,11 @@ impl<'a> Layout<'a> {
         let mut style = "roman";
         let mut weight = "normal";
         for token in tokens {
+            let mut flush = || {
+                y += 18.0 * 1.25;
+                x = 0.0;
+            };
+
             let c = match &token {
                 Token::Text(Text { text }) => text,
                 Token::Tag(Tag { tag }) => {
@@ -100,17 +117,28 @@ impl<'a> Layout<'a> {
                         font_size += 4;
                     } else if tag == "/big" {
                         font_size -= 4;
+                    } else if tag == "br" || tag == "br/" || tag == "p" || tag == "/p" {
+                        flush();
+                    } else if tag == "code" || tag == "pre" {
+                        style = "mono";
+                    } else if tag == "/code" || tag == "/pre" {
+                        style = "roman";
                     } else {
+                        println!("{tag}");
                     }
                     ""
                 }
             };
             let cfont = if style == "italic" && weight == "bold" {
                 &font.bold_italic
+            } else if style == "mono" && weight == "bold" {
+                &font.bold_mono
             } else if weight == "bold" {
                 &font.bold
             } else if style == "italic" {
                 &font.italic
+            } else if style == "mono" {
+                &font.mono
             } else {
                 &font.roman
             };
