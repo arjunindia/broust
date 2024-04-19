@@ -62,19 +62,21 @@ impl<'a> Layout<'a> {
     fn cached_measure<'b>(
         cache: &mut HashMap<String, TextDimensions>,
         text: &'b str,
+        style: &'b str,
+        weight: &'b str,
         font: &'b Font,
         font_size: u16,
         font_scale: f32,
     ) -> TextDimensions {
         if !cache.is_empty() {
-            let key = format!("{}{:?}{}{}", text, font, font_size, font_scale);
+            let key = format!("{}{}{}{}{}", style, weight, text, font_size, font_scale);
             if cache.contains_key(&key) {
                 return cache.get(&key).unwrap().to_owned();
             }
         }
-        let key = format!("{:?}{}{}{}", font, text, font_size, font_scale); // text second cuz space
-                                                                            // characters wont be
-                                                                            // removed
+        let key = format!("{}{}{}{}{}", style, weight, text, font_size, font_scale); // text third  cuz space
+                                                                                     // characters wont be
+                                                                                     // removed
         cache.insert(
             key.clone(),
             measure_text(text, Some(font), font_size, font_scale),
@@ -117,14 +119,13 @@ impl<'a> Layout<'a> {
                         font_size += 4;
                     } else if tag == "/big" {
                         font_size -= 4;
-                    } else if tag == "br" || tag == "br/" || tag == "p" || tag == "/p" {
+                    } else if tag == "br" || tag == "br/" || tag == "/p" {
                         flush();
                     } else if tag == "code" || tag == "pre" {
                         style = "mono";
                     } else if tag == "/code" || tag == "/pre" {
                         style = "roman";
                     } else {
-                        println!("{tag}");
                     }
                     ""
                 }
@@ -142,13 +143,15 @@ impl<'a> Layout<'a> {
             } else {
                 &font.roman
             };
-            let space_measure = Self::cached_measure(cache, " ", cfont, font_size, 1.0);
-            let empty_measure = Self::cached_measure(cache, "", cfont, font_size, 1.0);
+            let space_measure =
+                Self::cached_measure(cache, " ", style, weight, cfont, font_size, 1.0);
+            let empty_measure =
+                Self::cached_measure(cache, "", style, weight, cfont, font_size, 1.0);
             let c = html_escape::decode_html_entities(c);
 
             for word in c.split_whitespace() {
                 let measure: TextDimensions =
-                    Self::cached_measure(cache, word, cfont, font_size, 1.0);
+                    Self::cached_measure(cache, word, style, weight, cfont, font_size, 1.0);
                 if x + measure.width >= screen_width() {
                     y += 18.0 * 1.25;
                     x = 0.0;
