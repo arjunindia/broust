@@ -1,11 +1,10 @@
 use ::std::env;
 use std::collections::HashMap;
 
+mod dom;
 mod layout;
 mod lexer;
 mod networking;
-
-use itertools::{self, Itertools};
 use macroquad::prelude::*;
 const SCROLL_DISTANCE: f32 = 100.0;
 
