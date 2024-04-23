@@ -59,6 +59,15 @@ pub struct Layout<'a> {
 }
 
 impl<'a> Layout<'a> {
+    pub fn new() -> Self {
+        Self {
+            display_list: Vec::new(),
+            x: 0.0,
+            y: 10.0,
+            style: "roman",
+            weight: "normal",
+        }
+    }
     fn cached_measure<'b>(
         cache: &mut HashMap<String, TextDimensions>,
         text: &'b str,
@@ -83,34 +92,37 @@ impl<'a> Layout<'a> {
         );
         cache.get(&key.to_string()).unwrap().to_owned()
     }
-    pub fn new(
+    fn flush(&mut self) {
+        self.y += 18.0 * 1.25;
+        self.x = 0.0;
+    }
+    fn reset(&mut self) {
+        self.display_list.clear();
+        self.x = 0.0;
+        self.y = 1.0;
+        self.style = "roman";
+        self.weight = "normal";
+    }
+    pub fn layout(
+        &mut self,
         cache: &mut HashMap<String, TextDimensions>,
         tokens: &Vec<Token>,
         font: &'a DefaultFont,
-    ) -> Self {
-        let mut display_list: Vec<(f32, f32, u16, String, TextDimensions, &'a Font)> = Vec::new();
-        let mut x = 0.0;
-        let mut y = 10.0;
+    ) {
+        self.reset();
         let mut font_size: u16 = 16;
-        let mut style = "roman";
-        let mut weight = "normal";
         for token in tokens {
-            let mut flush = || {
-                y += 18.0 * 1.25;
-                x = 0.0;
-            };
-
             let c = match &token {
                 Token::Text(Text { text }) => text,
                 Token::Tag(Tag { tag }) => {
                     if tag == "i" || tag == "em" {
-                        style = "italic";
+                        self.style = "italic";
                     } else if tag == "/i" || tag == "/em" {
-                        style = "roman";
+                        self.style = "roman";
                     } else if tag == "b" || tag == "strong" {
-                        weight = "bold";
+                        self.weight = "bold";
                     } else if tag == "/b" || tag == "/strong" {
-                        weight = "normal";
+                        self.weight = "normal";
                     } else if tag == "small" {
                         font_size -= 2;
                     } else if tag == "/small" {
@@ -120,55 +132,69 @@ impl<'a> Layout<'a> {
                     } else if tag == "/big" {
                         font_size -= 4;
                     } else if tag == "br" || tag == "br/" || tag == "/p" {
-                        flush();
+                        self.flush();
                     } else if tag == "code" || tag == "pre" {
-                        style = "mono";
+                        self.style = "mono";
                     } else if tag == "/code" || tag == "/pre" {
-                        style = "roman";
+                        self.style = "roman";
                     } else {
                     }
                     ""
                 }
             };
-            let cfont = if style == "italic" && weight == "bold" {
+            let cfont = if self.style == "italic" && self.weight == "bold" {
                 &font.bold_italic
-            } else if style == "mono" && weight == "bold" {
+            } else if self.style == "mono" && self.weight == "bold" {
                 &font.bold_mono
-            } else if weight == "bold" {
+            } else if self.weight == "bold" {
                 &font.bold
-            } else if style == "italic" {
+            } else if self.style == "italic" {
                 &font.italic
-            } else if style == "mono" {
+            } else if self.style == "mono" {
                 &font.mono
             } else {
                 &font.roman
             };
             let space_measure =
-                Self::cached_measure(cache, " ", style, weight, cfont, font_size, 1.0);
+                Self::cached_measure(cache, " ", self.style, self.weight, cfont, font_size, 1.0);
             let empty_measure =
-                Self::cached_measure(cache, "", style, weight, cfont, font_size, 1.0);
+                Self::cached_measure(cache, "", self.style, self.weight, cfont, font_size, 1.0);
             let c = html_escape::decode_html_entities(c);
 
             for word in c.split_whitespace() {
-                let measure: TextDimensions =
-                    Self::cached_measure(cache, word, style, weight, cfont, font_size, 1.0);
-                if x + measure.width >= screen_width() {
-                    y += 18.0 * 1.25;
-                    x = 0.0;
+                let measure: TextDimensions = Self::cached_measure(
+                    cache,
+                    word,
+                    self.style,
+                    self.weight,
+                    cfont,
+                    font_size,
+                    1.0,
+                );
+                if self.x + measure.width >= screen_width() {
+                    self.y += 18.0 * 1.25;
+                    self.x = 0.0;
                 }
-                display_list.push((x, y, font_size, word.to_string(), measure, cfont));
-                x += measure.width + space_measure.width;
+                self.display_list.push((
+                    self.x,
+                    self.y,
+                    font_size,
+                    word.to_string(),
+                    measure,
+                    cfont,
+                ));
+                self.x += measure.width + space_measure.width;
             }
             if c.split_whitespace().count() <= 0 {
-                display_list.push((x, y, font_size, "".to_string(), empty_measure, cfont));
+                self.display_list.push((
+                    self.x,
+                    self.y,
+                    font_size,
+                    "".to_string(),
+                    empty_measure,
+                    cfont,
+                ));
             }
-        }
-        Self {
-            display_list,
-            x,
-            y,
-            style,
-            weight,
         }
     }
 }

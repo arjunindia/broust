@@ -29,9 +29,9 @@ async fn main() {
     let text = lexer::lex(text.to_string());
     let font = layout::DefaultFont::default();
     let mut curr_w = screen_width();
-
     let mut cache: HashMap<String, TextDimensions> = HashMap::new();
-    let mut layout = layout::Layout::new(&mut cache, &text, &font);
+    let mut layout_obj = layout::Layout::new();
+    layout_obj.layout(&mut cache, &text, &font);
     let mut scroll = 0.0;
 
     loop {
@@ -39,7 +39,7 @@ async fn main() {
         let (_mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
 
         if curr_w != screen_width() {
-            layout = layout::Layout::new(&mut cache, &text, &font);
+            layout_obj.layout(&mut cache, &text, &font);
             curr_w = screen_width();
         }
 
@@ -48,7 +48,7 @@ async fn main() {
         } else if mouse_wheel_y > 0.0 {
             scroll -= SCROLL_DISTANCE;
         }
-        for (x, y, font_size, c, d, style) in &layout.display_list {
+        for (x, y, font_size, c, d, style) in &layout_obj.display_list {
             if (*y > scroll + screen_height()) || (y + d.height < scroll) {
                 continue;
             }
