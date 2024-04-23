@@ -12,33 +12,33 @@ pub struct DefaultFont {
 }
 impl<'a> Default for DefaultFont {
     fn default() -> Self {
-        let mut roman = load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/OpenSans/OpenSans-Regular.ttf"
-        ))
-        .unwrap();
-        let mut italic = load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/OpenSans/OpenSans-Italic.ttf"
-        ))
-        .unwrap();
+        let mut roman =
+            load_ttf_font_from_bytes(include_bytes!("assets/fonts/OpenSans/OpenSans-Regular.ttf"))
+                .unwrap();
+        let mut italic =
+            load_ttf_font_from_bytes(include_bytes!("assets/fonts/OpenSans/OpenSans-Italic.ttf"))
+                .unwrap();
         let mut bold =
-            load_ttf_font_from_bytes(include_bytes!("../assets/fonts/OpenSans/OpenSans-Bold.ttf"))
+            load_ttf_font_from_bytes(include_bytes!("assets/fonts/OpenSans/OpenSans-Bold.ttf"))
                 .unwrap();
         let mut bold_italic = load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/OpenSans/OpenSans-BoldItalic.ttf"
+            "assets/fonts/OpenSans/OpenSans-BoldItalic.ttf"
         ))
         .unwrap();
         let mut mono = load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/JetbrainsMono/JetBrainsMono-Regular.ttf"
+            "assets/fonts/JetbrainsMono/JetBrainsMono-Regular.ttf"
         ))
         .unwrap();
         let mut bold_mono = load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/JetbrainsMono/JetBrainsMono-Bold.ttf"
+            "assets/fonts/JetbrainsMono/JetBrainsMono-Bold.ttf"
         ))
         .unwrap();
         roman.set_filter(FilterMode::Nearest);
         italic.set_filter(FilterMode::Nearest);
         bold.set_filter(FilterMode::Nearest);
         bold_italic.set_filter(FilterMode::Nearest);
+        mono.set_filter(FilterMode::Nearest);
+        bold_mono.set_filter(FilterMode::Nearest);
         Self {
             roman,
             italic,
