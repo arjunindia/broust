@@ -5,6 +5,7 @@ mod dom;
 mod layout;
 mod lexer;
 mod networking;
+use dom::HTMLParser;
 use macroquad::prelude::*;
 const SCROLL_DISTANCE: f32 = 100.0;
 
@@ -23,6 +24,8 @@ async fn main() {
     }
     let text = networking::url::URL::new(&args[1]);
     let text = &text.request();
+    let tree = HTMLParser::new(text.to_string()).parse();
+    println!("{:?}", tree);
     let text = lexer::lex(text.to_string());
     let font = layout::DefaultFont::default();
     let mut curr_w = screen_width();
