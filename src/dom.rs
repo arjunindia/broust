@@ -34,9 +34,9 @@ impl TreeNode {
         self.children.push(Rc::clone(&child));
     }
 }
-struct Tag {
-    tag: String,
-    attributes: HashMap<String, String>,
+pub struct Tag {
+    pub tag: String,
+    pub attributes: HashMap<String, String>,
 }
 pub enum Element {
     Tag(Tag),

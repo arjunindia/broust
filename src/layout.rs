@@ -1,6 +1,6 @@
-use crate::lexer::{Tag, Text, Token};
+use crate::dom::TreeNode;
 use macroquad::prelude::*;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct DefaultFont {
     roman: Font,
@@ -56,6 +56,7 @@ pub struct Layout<'a> {
     y: f32,
     style: &'a str,
     weight: &'a str,
+    font_size: u16,
 }
 
 impl<'a> Layout<'a> {
@@ -66,6 +67,7 @@ impl<'a> Layout<'a> {
             y: 10.0,
             style: "roman",
             weight: "normal",
+            font_size: 16,
         }
     }
     fn cached_measure<'b>(
@@ -102,99 +104,114 @@ impl<'a> Layout<'a> {
         self.y = 1.0;
         self.style = "roman";
         self.weight = "normal";
+        self.font_size = 16;
+    }
+    fn open_tag(&mut self, tag: &str) -> &str {
+        if tag == "i" || tag == "em" {
+            self.style = "italic";
+        } else if tag == "b" || tag == "strong" {
+            self.weight = "bold";
+        } else if tag == "small" {
+            self.font_size -= 2;
+        } else if tag == "big" {
+            self.font_size += 4;
+        } else if tag == "br" || tag == "br/" || tag == "p" {
+            self.flush();
+        } else if tag == "code" || tag == "pre" {
+            self.style = "mono";
+        }
+        ""
+    }
+    fn close_tag(&mut self, tag: &str) {
+        if tag == "i" || tag == "em" {
+            self.style = "roman";
+        } else if tag == "b" || tag == "strong" {
+            self.weight = "normal";
+        } else if tag == "small" {
+            self.font_size += 2;
+        } else if tag == "big" {
+            self.font_size -= 4;
+        } else if tag == "code" || tag == "pre" {
+            self.style = "roman";
+        }
+    }
+    fn recurse(
+        &mut self,
+        font: &'a DefaultFont,
+        cache: &mut HashMap<String, TextDimensions>,
+        node: &Rc<RefCell<TreeNode>>,
+    ) {
+        match &node.try_borrow().unwrap().value {
+            crate::dom::Element::Text(text) => {
+                let cfont = if self.style == "italic" && self.weight == "bold" {
+                    &font.bold_italic
+                } else if self.style == "mono" && self.weight == "bold" {
+                    &font.bold_mono
+                } else if self.weight == "bold" {
+                    &font.bold
+                } else if self.style == "italic" {
+                    &font.italic
+                } else if self.style == "mono" {
+                    &font.mono
+                } else {
+                    &font.roman
+                };
+                let text = html_escape::decode_html_entities(text);
+
+                for word in text.split_whitespace() {
+                    self.word(cfont, cache, word);
+                }
+            }
+            crate::dom::Element::Tag(tag) => {
+                self.open_tag(&tag.tag);
+                for child in &node.try_borrow().unwrap().children {
+                    self.recurse(font, cache, child);
+                }
+                self.close_tag(&tag.tag);
+            }
+        }
+    }
+    fn word(&mut self, cfont: &'a Font, cache: &mut HashMap<String, TextDimensions>, word: &str) {
+        let space_measure = Self::cached_measure(
+            cache,
+            " ",
+            self.style,
+            self.weight,
+            cfont,
+            self.font_size,
+            1.0,
+        );
+
+        let measure: TextDimensions = Self::cached_measure(
+            cache,
+            word,
+            self.style,
+            self.weight,
+            cfont,
+            self.font_size,
+            1.0,
+        );
+        if self.x + measure.width >= screen_width() {
+            self.y += 18.0 * 1.25;
+            self.x = 0.0;
+        }
+        self.display_list.push((
+            self.x,
+            self.y,
+            self.font_size,
+            word.to_string(),
+            measure,
+            cfont,
+        ));
+        self.x += measure.width + space_measure.width;
     }
     pub fn layout(
         &mut self,
         cache: &mut HashMap<String, TextDimensions>,
-        tokens: &Vec<Token>,
+        node: &Rc<RefCell<TreeNode>>,
         font: &'a DefaultFont,
     ) {
         self.reset();
-        let mut font_size: u16 = 16;
-        for token in tokens {
-            let c = match &token {
-                Token::Text(Text { text }) => text,
-                Token::Tag(Tag { tag }) => {
-                    if tag == "i" || tag == "em" {
-                        self.style = "italic";
-                    } else if tag == "/i" || tag == "/em" {
-                        self.style = "roman";
-                    } else if tag == "b" || tag == "strong" {
-                        self.weight = "bold";
-                    } else if tag == "/b" || tag == "/strong" {
-                        self.weight = "normal";
-                    } else if tag == "small" {
-                        font_size -= 2;
-                    } else if tag == "/small" {
-                        font_size += 2;
-                    } else if tag == "big" {
-                        font_size += 4;
-                    } else if tag == "/big" {
-                        font_size -= 4;
-                    } else if tag == "br" || tag == "br/" || tag == "/p" {
-                        self.flush();
-                    } else if tag == "code" || tag == "pre" {
-                        self.style = "mono";
-                    } else if tag == "/code" || tag == "/pre" {
-                        self.style = "roman";
-                    } else {
-                    }
-                    ""
-                }
-            };
-            let cfont = if self.style == "italic" && self.weight == "bold" {
-                &font.bold_italic
-            } else if self.style == "mono" && self.weight == "bold" {
-                &font.bold_mono
-            } else if self.weight == "bold" {
-                &font.bold
-            } else if self.style == "italic" {
-                &font.italic
-            } else if self.style == "mono" {
-                &font.mono
-            } else {
-                &font.roman
-            };
-            let space_measure =
-                Self::cached_measure(cache, " ", self.style, self.weight, cfont, font_size, 1.0);
-            let empty_measure =
-                Self::cached_measure(cache, "", self.style, self.weight, cfont, font_size, 1.0);
-            let c = html_escape::decode_html_entities(c);
-
-            for word in c.split_whitespace() {
-                let measure: TextDimensions = Self::cached_measure(
-                    cache,
-                    word,
-                    self.style,
-                    self.weight,
-                    cfont,
-                    font_size,
-                    1.0,
-                );
-                if self.x + measure.width >= screen_width() {
-                    self.y += 18.0 * 1.25;
-                    self.x = 0.0;
-                }
-                self.display_list.push((
-                    self.x,
-                    self.y,
-                    font_size,
-                    word.to_string(),
-                    measure,
-                    cfont,
-                ));
-                self.x += measure.width + space_measure.width;
-            }
-            if c.split_whitespace().count() <= 0 {
-                self.display_list.push((
-                    self.x,
-                    self.y,
-                    font_size,
-                    "".to_string(),
-                    empty_measure,
-                    cfont,
-                ));
-            }
-        }
+        self.recurse(font, cache, node);
     }
 }

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 mod dom;
 mod layout;
-mod lexer;
 mod networking;
 use dom::HTMLParser;
 use macroquad::prelude::*;
@@ -26,12 +25,11 @@ async fn main() {
     let text = &text.request();
     let tree = HTMLParser::new(text.to_string()).parse();
     println!("{:?}", tree);
-    let text = lexer::lex(text.to_string());
     let font = layout::DefaultFont::default();
     let mut curr_w = screen_width();
     let mut cache: HashMap<String, TextDimensions> = HashMap::new();
     let mut layout_obj = layout::Layout::new();
-    layout_obj.layout(&mut cache, &text, &font);
+    layout_obj.layout(&mut cache, &tree, &font);
     let mut scroll = 0.0;
 
     loop {
@@ -39,7 +37,7 @@ async fn main() {
         let (_mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
 
         if curr_w != screen_width() {
-            layout_obj.layout(&mut cache, &text, &font);
+            layout_obj.layout(&mut cache, &tree, &font);
             curr_w = screen_width();
         }
 
