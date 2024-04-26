@@ -58,6 +58,7 @@ pub struct Layout<'a> {
     weight: &'a str,
     font_size: u16,
     r#type: String,
+    color: Color,
 }
 
 impl<'a> Layout<'a> {
@@ -70,6 +71,7 @@ impl<'a> Layout<'a> {
             weight: "normal",
             font_size: 16,
             r#type,
+            color: BLACK,
         }
     }
     fn cached_measure<'b>(
@@ -121,10 +123,12 @@ impl<'a> Layout<'a> {
             self.flush();
             self.font_size += 16;
             self.flush();
-        } else if tag == "br" || tag == "br/" || tag == "p" {
+        } else if tag == "br" || tag == "br/" || tag == "hr" || tag == "hr/" || tag == "p" {
             self.flush();
         } else if tag == "code" || tag == "pre" {
             self.style = "mono";
+        } else if tag == "a" {
+            self.color = BLUE;
         }
         ""
     }
@@ -141,6 +145,8 @@ impl<'a> Layout<'a> {
             self.font_size -= 16;
         } else if tag == "code" || tag == "pre" {
             self.style = "roman";
+        } else if tag == "a" {
+            self.color = BLACK;
         }
     }
     fn recurse(
@@ -229,7 +235,7 @@ impl<'a> Layout<'a> {
         indent: u32,
         color: Option<Color>,
     ) {
-        let color = color.unwrap_or(BLACK);
+        let color = color.unwrap_or(self.color);
         let space_measure = Self::cached_measure(
             cache,
             " ",

@@ -158,8 +158,11 @@ impl HTMLParser {
     /** Get the attributes of a tag. */
     fn get_attributes(&self, text: String) -> (String, HashMap<String, String>) {
         let parts = text.split_whitespace().collect::<Vec<&str>>();
-        let tag = parts.first().unwrap().to_lowercase();
         let mut attributes: HashMap<String, String> = HashMap::new();
+        if parts.is_empty() {
+            return ("".to_string(), attributes);
+        };
+        let tag = parts.first().unwrap().to_lowercase();
         for attrpair in &parts[1..parts.len()] {
             if attrpair.contains("=") {
                 let (key, mut value) = attrpair.split_once("=").unwrap();
