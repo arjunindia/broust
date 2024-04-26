@@ -13,13 +13,19 @@ pub struct URL {
     pub host: String,
     pub path: String,
     pub port: u16,
+    pub r#type: String,
 }
 
 impl URL {
     pub fn new(url: &str) -> Self {
         let (scheme, url) = url.split_once("://").unwrap();
         let scheme = scheme.to_owned();
-        assert!(scheme == "http" || scheme == "https");
+        assert!(
+            scheme == "http"
+                || scheme == "https"
+                || scheme == "view-source:http"
+                || scheme == "view-source:https"
+        );
         let mut url: String = url.to_string();
         if !url.contains("/") {
             url = url.to_string() + "/";
@@ -27,17 +33,28 @@ impl URL {
         let (host, url) = url.split_once("/").unwrap();
         let host = host.to_owned();
         let path = "/".to_string() + url;
-        let port = if scheme == "http" { 80 } else { 443 };
+        let port = if scheme == "http" || scheme == "view-source:http" {
+            80
+        } else {
+            443
+        };
         let port = if host.contains(":") {
             host.split_once(":").unwrap().1.parse::<u16>().unwrap()
         } else {
             port
         };
+        let r#type = if scheme.starts_with("view-source") {
+            "source"
+        } else {
+            "url"
+        }
+        .to_string();
         Self {
             scheme,
             host,
             path,
             port,
+            r#type,
         }
     }
 

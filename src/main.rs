@@ -22,13 +22,14 @@ async fn main() {
         panic!("Not enough arguments! add a `-- {{url}}` at the end of the CLI");
     }
     let text = networking::url::URL::new(&args[1]);
+    let r#type = &text.r#type;
     let text = &text.request();
     let tree = HTMLParser::new(text.to_string()).parse();
     println!("{:?}", tree);
     let font = layout::DefaultFont::default();
     let mut curr_w = screen_width();
     let mut cache: HashMap<String, TextDimensions> = HashMap::new();
-    let mut layout_obj = layout::Layout::new();
+    let mut layout_obj = layout::Layout::new(r#type.to_string());
     layout_obj.layout(&mut cache, &tree, &font);
     let mut scroll = 0.0;
 
@@ -46,7 +47,7 @@ async fn main() {
         } else if mouse_wheel_y > 0.0 {
             scroll -= SCROLL_DISTANCE;
         }
-        for (x, y, font_size, c, d, style) in &layout_obj.display_list {
+        for (x, y, font_size, c, d, style, color) in &layout_obj.display_list {
             if (*y > scroll + screen_height()) || (y + d.height < scroll) {
                 continue;
             }
@@ -58,7 +59,7 @@ async fn main() {
                 TextParams {
                     font: Some(&style),
                     font_size: *font_size,
-                    color: BLACK,
+                    color: *color,
                     ..Default::default()
                 },
             );

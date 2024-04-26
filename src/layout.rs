@@ -51,16 +51,17 @@ impl<'a> Default for DefaultFont {
 }
 
 pub struct Layout<'a> {
-    pub display_list: Vec<(f32, f32, u16, String, TextDimensions, &'a Font)>,
+    pub display_list: Vec<(f32, f32, u16, String, TextDimensions, &'a Font, Color)>,
     x: f32,
     y: f32,
     style: &'a str,
     weight: &'a str,
     font_size: u16,
+    r#type: String,
 }
 
 impl<'a> Layout<'a> {
-    pub fn new() -> Self {
+    pub fn new(r#type: String) -> Self {
         Self {
             display_list: Vec::new(),
             x: 0.0,
@@ -68,6 +69,7 @@ impl<'a> Layout<'a> {
             style: "roman",
             weight: "normal",
             font_size: 16,
+            r#type,
         }
     }
     fn cached_measure<'b>(
@@ -115,6 +117,10 @@ impl<'a> Layout<'a> {
             self.font_size -= 2;
         } else if tag == "big" {
             self.font_size += 4;
+        } else if tag == "h1" {
+            self.flush();
+            self.font_size += 16;
+            self.flush();
         } else if tag == "br" || tag == "br/" || tag == "p" {
             self.flush();
         } else if tag == "code" || tag == "pre" {
@@ -131,6 +137,8 @@ impl<'a> Layout<'a> {
             self.font_size += 2;
         } else if tag == "big" {
             self.font_size -= 4;
+        } else if tag == "h1" {
+            self.font_size -= 16;
         } else if tag == "code" || tag == "pre" {
             self.style = "roman";
         }
@@ -159,7 +167,7 @@ impl<'a> Layout<'a> {
                 let text = html_escape::decode_html_entities(text);
 
                 for word in text.split_whitespace() {
-                    self.word(cfont, cache, word);
+                    self.word(cfont, cache, word, 0, None);
                 }
             }
             crate::dom::Element::Tag(tag) => {
@@ -171,7 +179,57 @@ impl<'a> Layout<'a> {
             }
         }
     }
-    fn word(&mut self, cfont: &'a Font, cache: &mut HashMap<String, TextDimensions>, word: &str) {
+    fn recurse_source(
+        &mut self,
+        font: &'a DefaultFont,
+        cache: &mut HashMap<String, TextDimensions>,
+        node: &Rc<RefCell<TreeNode>>,
+        indent: u32,
+    ) {
+        match &node.try_borrow().unwrap().value {
+            crate::dom::Element::Text(text) => {
+                for word in text.split_whitespace() {
+                    self.word(&font.roman, cache, word, indent + 1, None);
+                }
+                self.flush();
+            }
+            crate::dom::Element::Tag(tag) => {
+                self.word(&font.bold, cache, format!("<").as_str(), indent, None);
+                self.word(
+                    &font.bold,
+                    cache,
+                    format!("{}", &tag.tag).as_str(),
+                    indent,
+                    Some(Color::from_hex(0xf55e5e)),
+                );
+                self.word(&font.bold, cache, format!(">").as_str(), indent, None);
+                self.flush();
+                for child in &node.try_borrow().unwrap().children {
+                    self.recurse_source(font, cache, child, indent + 2);
+                }
+                self.word(&font.bold, cache, format!("</").as_str(), indent, None);
+                self.word(
+                    &font.bold,
+                    cache,
+                    format!("{}", &tag.tag).as_str(),
+                    indent,
+                    Some(Color::from_hex(0xf55e5e)),
+                );
+                self.word(&font.bold, cache, format!(">").as_str(), indent, None);
+                self.flush();
+            }
+        }
+    }
+
+    fn word(
+        &mut self,
+        cfont: &'a Font,
+        cache: &mut HashMap<String, TextDimensions>,
+        word: &str,
+        indent: u32,
+        color: Option<Color>,
+    ) {
+        let color = color.unwrap_or(BLACK);
         let space_measure = Self::cached_measure(
             cache,
             " ",
@@ -182,6 +240,15 @@ impl<'a> Layout<'a> {
             1.0,
         );
 
+        let tab_measure = Self::cached_measure(
+            cache,
+            " ",
+            self.style,
+            self.weight,
+            cfont,
+            self.font_size,
+            1.0,
+        );
         let measure: TextDimensions = Self::cached_measure(
             cache,
             word,
@@ -191,9 +258,13 @@ impl<'a> Layout<'a> {
             self.font_size,
             1.0,
         );
+        if self.x <= 0.0 {
+            self.x = 0.0 + (tab_measure.width * indent as f32).clamp(0.0, screen_width());
+        }
+
         if self.x + measure.width >= screen_width() {
             self.y += 18.0 * 1.25;
-            self.x = 0.0;
+            self.x = 0.0 + (tab_measure.width * indent as f32);
         }
         self.display_list.push((
             self.x,
@@ -202,6 +273,7 @@ impl<'a> Layout<'a> {
             word.to_string(),
             measure,
             cfont,
+            color,
         ));
         self.x += measure.width + space_measure.width;
     }
@@ -212,6 +284,10 @@ impl<'a> Layout<'a> {
         font: &'a DefaultFont,
     ) {
         self.reset();
-        self.recurse(font, cache, node);
+        if self.r#type == "source" {
+            self.recurse_source(font, cache, node, 0);
+        } else {
+            self.recurse(font, cache, node);
+        }
     }
 }

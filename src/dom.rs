@@ -7,6 +7,9 @@ const SELF_CLOSING_TAGS: [&str; 14] = [
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
     "track", "wbr",
 ];
+const HEAD_TAGS: [&str; 9] = [
+    "base", "basefont", "bgsound", "noscript", "link", "meta", "title", "style", "script",
+];
 
 pub struct TreeNode {
     pub value: Element,
@@ -60,6 +63,7 @@ impl HTMLParser {
         if text.trim().is_empty() {
             return;
         }
+        self.implicit_tags(None);
         let parent = self.unfinished.last_mut().unwrap();
         let node = TreeNode::new(Element::Text(text), Some(Rc::downgrade(&parent)));
         parent.try_borrow_mut().unwrap().add_child(node);
@@ -73,6 +77,7 @@ impl HTMLParser {
         if tag.starts_with("!") {
             return;
         }
+        self.implicit_tags(Some(&tag));
         if tag.starts_with("/") {
             if self.unfinished.len() == 1 {
                 return;
@@ -110,6 +115,46 @@ impl HTMLParser {
             self.unfinished.push(node);
         }
     }
+    fn implicit_tags(&mut self, tag: Option<&str>) {
+        let mut implicit_tags_to_add = Vec::new();
+
+        let open_tags: Vec<String> = self
+            .unfinished
+            .iter()
+            .filter_map(|node| match &node.borrow().value {
+                Element::Tag(tag) => Some(tag.tag.to_owned()),
+                _ => None,
+            })
+            .collect();
+
+        if let Some(tag) = tag {
+            if open_tags.is_empty() && tag != "html" {
+                implicit_tags_to_add.push("html");
+            } else if open_tags == ["html"] && !["head", "body", "/html"].contains(&tag) {
+                if Self::is_head_tag(tag) {
+                    implicit_tags_to_add.push("head");
+                } else {
+                    implicit_tags_to_add.push("body");
+                }
+            } else if open_tags == ["html", "head"]
+                && !["/head"].contains(&tag)
+                && !Self::is_head_tag(tag)
+            {
+                implicit_tags_to_add.push("/head");
+            }
+        }
+
+        for tag in implicit_tags_to_add {
+            self.add_tag(tag.to_string());
+        }
+    }
+
+    fn is_head_tag(tag: &str) -> bool {
+        [
+            "base", "basefont", "bgsound", "noscript", "link", "meta", "title", "style", "script",
+        ]
+        .contains(&tag)
+    }
     /** Get the attributes of a tag. */
     fn get_attributes(&self, text: String) -> (String, HashMap<String, String>) {
         let parts = text.split_whitespace().collect::<Vec<&str>>();
@@ -130,6 +175,9 @@ impl HTMLParser {
     }
     /** finish parsing and return the root node */
     fn finish(&mut self) -> Rc<RefCell<TreeNode>> {
+        if self.unfinished.is_empty() {
+            self.implicit_tags(None);
+        }
         while self.unfinished.len() > 1 {
             let node = self.unfinished.pop().unwrap();
             let mut parent = self
