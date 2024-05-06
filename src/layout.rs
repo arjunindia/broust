@@ -59,6 +59,7 @@ pub struct Layout<'a> {
     font_size: u16,
     r#type: String,
     color: Color,
+    print: bool,
 }
 
 impl<'a> Layout<'a> {
@@ -72,6 +73,7 @@ impl<'a> Layout<'a> {
             font_size: 16,
             r#type,
             color: BLACK,
+            print: true,
         }
     }
     fn cached_measure<'b>(
@@ -129,6 +131,8 @@ impl<'a> Layout<'a> {
             self.style = "mono";
         } else if tag == "a" {
             self.color = BLUE;
+        } else if tag == "head" || tag == "style" || tag == "script" {
+            self.print = false;
         }
         ""
     }
@@ -147,6 +151,8 @@ impl<'a> Layout<'a> {
             self.style = "roman";
         } else if tag == "a" {
             self.color = BLACK;
+        } else if tag == "head" || tag == "style" || tag == "script" {
+            self.print = true
         }
     }
     fn recurse(
@@ -157,6 +163,9 @@ impl<'a> Layout<'a> {
     ) {
         match &node.try_borrow().unwrap().value {
             crate::dom::Element::Text(text) => {
+                if !self.print {
+                    return;
+                }
                 let cfont = if self.style == "italic" && self.weight == "bold" {
                     &font.bold_italic
                 } else if self.style == "mono" && self.weight == "bold" {
